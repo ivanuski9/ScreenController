@@ -1,0 +1,41 @@
+#######################################
+# Syntax Coloring Map For TimerOne
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+ScreenController              	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+ScreenController		KEYWORD2
+print				KEYWORD2
+println 			KEYWORD2
+clear				KEYWORD2
+readButton			KEYWORD2
+waitButton			KEYWORD2
+moveWindow			KEYWORD2
+printItem 			KEYWORD2
+printSubItem			KEYWORD2
+printCorner			KEYWORD2
+printList			KEYWORD2
+readItemList			KEYWORD2
+readFloat			KEYWORD2
+readInteger			KEYWORD2
+readString			KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+BUTTON_RIGHT			LITERAL1
+BUTTON_UP			LITERAL1
+BUTTON_DOWN			LITERAL1
+BUTTON_LEFT			LITERAL1
+BUTTON_SELECT			LITERAL1
+BUTTON_NONE			LITERAL1
+
+
