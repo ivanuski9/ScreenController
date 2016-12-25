@@ -1,14 +1,14 @@
 #include <LiquidCrystal.h>
 #include <ScreenController.h>
 
-#define NUM_MENUS (sizeof(titles)/sizeof(String))
+#define NUM_MENUS (sizeof(titles)/sizeof(char *))
 
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 ScreenController screen(lcd, 16, 2);
 
 int i = 0;
 int selected = -1;
-String titles[5] = {"Menu 1", "Menu 2", "Menu 3", "Menu 4", "Menu 5"};
+char* titles[5] = {"Menu 1", "Menu 2", "Menu 3", "Menu 4", "Menu 5"};
 
 void setup() {
   lcd.begin(16,2);

@@ -14,11 +14,11 @@ void setup() {
   lcd.setCursor(0,0);
   //lcd.autoscroll();
   
-  String str = "ScreenController";
+  char str[] = "ScreenController";
   screen.println(lcd, str);
   delay(2000);
-  str = "Test 2";
-  screen.print(lcd, str);
+  String str2 = "Test 2";
+  screen.print(lcd, str2);
   delay(2000);
   
   screen.clear(lcd);

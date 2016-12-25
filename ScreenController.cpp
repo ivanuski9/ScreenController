@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <avr/pgmspace.h>
+#include <string.h>
 #include <LiquidCrystal.h>
 #include "ScreenController.h"
 
@@ -53,6 +55,10 @@ void ScreenController::print(LiquidCrystal _lcd, String msg) {
 	printBuffer(_lcd);
 }
 
+void ScreenController::print(LiquidCrystal _lcd, char msg[]) {
+  print(_lcd, String(msg));
+}
+
 void ScreenController::println(LiquidCrystal _lcd, String msg) {
 	// Write in buffer
 	int y_abs = positionAbs(writeY);
@@ -77,6 +83,10 @@ void ScreenController::println(LiquidCrystal _lcd, String msg) {
 		//if (windows_pos >= (LIMIT_BUFFER-1)) windows_pos = LIMIT_BUFFER-2;
 	}
 	printBuffer(_lcd);
+}
+
+void ScreenController::println(LiquidCrystal _lcd, char msg[]) {
+  println(_lcd, String(msg));
 }
 
 void ScreenController::printBuffer(LiquidCrystal _lcd) {
@@ -230,12 +240,35 @@ void ScreenController::printCorner(LiquidCrystal _lcd, String msg) {
    _lcd.print(msg);
 }
 
-void ScreenController::printList(LiquidCrystal _lcd, String titles[], int size, int selected) {
+void ScreenController::printList(LiquidCrystal _lcd, char* titles[], int size, int selected, bool progmem, bool subItem) {
+  int i;
+  char buffer[16];
+  String titles2[size];
+
+  for (i=0; i < size; i++) {
+    if (progmem) {
+      strcpy_P(buffer, (char*)pgm_read_word(&(titles[i])));
+      titles2[i] = String(buffer);
+    } else {
+      titles2[i] = String(titles[i]);
+    }
+  }
+
+  printList(_lcd, titles2, size, selected, subItem);
+}
+
+void ScreenController::printList(LiquidCrystal _lcd, String titles[], int size, int selected, bool subItem) {
 	int i;
 
 	// Print all lines
 	for (i=0; i < size; i++) {
-		println(_lcd, titles[i]);
+    if (subItem) {
+      String buffer = " " + titles[i];
+      //printSubItem(_lcd, titles[i]);
+      println(_lcd, buffer);
+    } else {
+      println(_lcd, titles[i]);
+    }
 	}
 	
 	// Move windows
@@ -243,21 +276,32 @@ void ScreenController::printList(LiquidCrystal _lcd, String titles[], int size, 
 	printBuffer(_lcd);
 }
 
+int ScreenController::readItemList(LiquidCrystal _lcd, char* titles[], int size, int timeout, bool progmem) {
+  int i;
+  char buffer[16];
+  String titles2[size];
+
+  for (i=0; i < size; i++) {
+    if (progmem) {
+      strcpy_P(buffer, (char*)pgm_read_word(&(titles[i])));
+      titles2[i] = String(buffer);
+    } else {
+      titles2[i] = String(titles[i]);
+    }
+  }
+
+  return readItemList(_lcd, titles2, size, timeout);
+}
+
 int ScreenController::readItemList(LiquidCrystal _lcd, String titles[], int size, int timeout) {
-	int i, button;
+	  int i, button;
    	int selected = 0;
-   	String titles2[size];
-
-   	for (i=0; i < size; i++) {
-     	titles2[i] = " "+titles[i];
-   	}
-
-   	clear(_lcd);
-   	printList(_lcd, titles2, size);
+   	
+    clear(_lcd);
+   	printList(_lcd, titles, size, selected, true);
    	_lcd.setCursor(0, 0);
    	_lcd.write(byte(ARROW_RIGHT));
    	_lcd.setCursor(0, 0);
-   	//_lcd.blink();//cursor();
 
 	do {
 	   	button = readButton(timeout);

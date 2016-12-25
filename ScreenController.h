@@ -2,6 +2,8 @@
 #define __SCREEN_CONTROLLER__
 
 #include <Arduino.h>
+#include <avr/pgmspace.h>
+#include <string.h>
 #include <LiquidCrystal.h>
 
 #define LIMIT_BUFFER 50
@@ -23,7 +25,9 @@ class ScreenController {
 		void powerOn(LiquidCrystal _lcd);
 		void powerOff(LiquidCrystal _lcd);
 		void print(LiquidCrystal _lcd, String msg);
+		void print(LiquidCrystal _lcd, char msg[]);
 		void println(LiquidCrystal _lcd, String msg);
+		void println(LiquidCrystal _lcd, char msg[]);
 		void clear(LiquidCrystal _lcd);
 		int readButton(int timeout=-1);
 		void waitButton(int button, int timeout=-1);
@@ -32,8 +36,10 @@ class ScreenController {
 		void printItem(LiquidCrystal _lcd, String msg);
 		void printSubItem(LiquidCrystal _lcd, String msg);
 		void printCorner(LiquidCrystal _lcd, String msg);
-		void printList(LiquidCrystal _lcd, String titles[], int size, int selected=0);
+		void printList(LiquidCrystal _lcd, String titles[], int size, int selected=0, bool subItem=false);
+		void printList(LiquidCrystal _lcd, char* titles[], int size, int selected=0, bool progmem=false, bool subItem=false);
 		int readItemList(LiquidCrystal _lcd, String titles[], int size, int timeout=-1);
+		int readItemList(LiquidCrystal _lcd, char* titles[], int size, int timeout=-1, bool progmem=false);
 		float readFloat(LiquidCrystal _lcd, String title, float initValue, int decimal, String unit="", int timeout=-1);
 		int readInteger(LiquidCrystal _lcd, String title, int initValue, String unit="", int timeout=-1);
 		String readString(LiquidCrystal _lcd, String title, String initValue, int timeout=-1);
