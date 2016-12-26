@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <avr/pgmspace.h>
+#include <string.h>
 #include <LiquidCrystal.h>
 #include "ScreenController.h"
 
@@ -26,7 +28,7 @@ byte b_up_down[8] = {
 
 ScreenController::ScreenController(LiquidCrystal _lcd, int w, int h, int _pinOnOff) {
 	_lcd.createChar(ARROW_RIGHT, b_arrow_right);
-    _lcd.createChar(UP_DOWN, b_up_down);
+  _lcd.createChar(UP_DOWN, b_up_down);
 	height = h;
 	if (_pinOnOff != -1) {
 		pinOnOff = _pinOnOff;
@@ -53,6 +55,10 @@ void ScreenController::print(LiquidCrystal _lcd, String msg) {
 	printBuffer(_lcd);
 }
 
+void ScreenController::print(LiquidCrystal _lcd, char msg[]) {
+  print(_lcd, String(msg));
+}
+
 void ScreenController::println(LiquidCrystal _lcd, String msg) {
 	// Write in buffer
 	int y_abs = positionAbs(writeY);
@@ -77,6 +83,10 @@ void ScreenController::println(LiquidCrystal _lcd, String msg) {
 		//if (windows_pos >= (LIMIT_BUFFER-1)) windows_pos = LIMIT_BUFFER-2;
 	}
 	printBuffer(_lcd);
+}
+
+void ScreenController::println(LiquidCrystal _lcd, char msg[]) {
+  println(_lcd, String(msg));
 }
 
 void ScreenController::printBuffer(LiquidCrystal _lcd) {
@@ -220,22 +230,54 @@ void ScreenController::printItem(LiquidCrystal _lcd, String msg) {
 
 void ScreenController::printSubItem(LiquidCrystal _lcd, String msg) {
 	_lcd.setCursor(0, 1);
-   _lcd.print(" ");
-   _lcd.print(msg);
+  _lcd.print(" ");
+  _lcd.print(msg);
 }
 
 void ScreenController::printCorner(LiquidCrystal _lcd, String msg) {
    _lcd.setCursor(11, 0);
-   //_lcd.print(msg.substring(0,4));
    _lcd.print(msg);
 }
 
-void ScreenController::printList(LiquidCrystal _lcd, String titles[], int size, int selected) {
+void ScreenController::printList(LiquidCrystal _lcd, char* titles[], int size, int selected, bool progmem, bool subItem) {
+  int i;
+  char buffer[16];
+  char result[16];
+
+  // Print all lines
+  for (i=0; i < size; i++) {
+    if (subItem) {
+      strcpy(result, " ");
+    } else {
+      strcpy(result, "");
+    }
+
+    if (progmem) {
+      strcpy_P(buffer, (char*)pgm_read_word(&(titles[i])));
+    } else {
+      strcpy(buffer, titles[i]);
+    }
+
+    strcat(result, buffer);
+    println(_lcd, result);
+  }
+
+  // Move windows
+  windows_pos = selected;
+  printBuffer(_lcd);
+}
+
+void ScreenController::printList(LiquidCrystal _lcd, String titles[], int size, int selected, bool subItem) {
 	int i;
 
 	// Print all lines
 	for (i=0; i < size; i++) {
-		println(_lcd, titles[i]);
+    if (subItem) {
+      String buffer = " " + titles[i];
+      println(_lcd, buffer);
+    } else {
+      println(_lcd, titles[i]);
+    }
 	}
 	
 	// Move windows
@@ -243,255 +285,267 @@ void ScreenController::printList(LiquidCrystal _lcd, String titles[], int size, 
 	printBuffer(_lcd);
 }
 
+int ScreenController::readItemList(LiquidCrystal _lcd, char* titles[], int size, int timeout, bool progmem) {
+  int selected = 0;
+  char buffer[16];
+
+  clear(_lcd);
+  printList(_lcd, titles, size, selected, progmem, true);
+  _lcd.setCursor(0, 0);
+  _lcd.write(byte(ARROW_RIGHT));
+  _lcd.setCursor(0, 0);
+
+  return readItemList(_lcd, selected, size, timeout);
+}
+
 int ScreenController::readItemList(LiquidCrystal _lcd, String titles[], int size, int timeout) {
-	int i, button;
-   	int selected = 0;
-   	String titles2[size];
+  int selected = 0;
 
-   	for (i=0; i < size; i++) {
-     	titles2[i] = " "+titles[i];
-   	}
+  clear(_lcd);
+  printList(_lcd, titles, size, selected, true);
+  _lcd.setCursor(0, 0);
+  _lcd.write(byte(ARROW_RIGHT));
+  _lcd.setCursor(0, 0);
 
-   	clear(_lcd);
-   	printList(_lcd, titles2, size);
-   	_lcd.setCursor(0, 0);
-   	_lcd.write(byte(ARROW_RIGHT));
-   	_lcd.setCursor(0, 0);
-   	//_lcd.blink();//cursor();
+  return readItemList(_lcd, selected, size, timeout);
+}
 
-	do {
-	   	button = readButton(timeout);
+int ScreenController::readItemList(LiquidCrystal _lcd, int selected, int size, int timeout) {
+  int button;
 
-		if (button == BUTTON_NONE || button == BUTTON_LEFT) {
-			selected = -1;
-			break;
-		}
-		if (button == BUTTON_DOWN) selected++;
-		if (button == BUTTON_UP) selected--;
-		
-		if (selected < 0) selected = 0;
-		if (selected >= size) selected = size-1;
+  do {
+    button = readButton(timeout);
 
-		if (selected > (windows_pos+1) || selected < windows_pos) { 
-			moveScreen(_lcd, button, 0, size-1);
-		}
-		
-		if (windows_pos == selected) {
-	    	_lcd.setCursor(0, 0);
-	    	_lcd.write(byte(ARROW_RIGHT));
-	    	_lcd.setCursor(0, 1);
-	    	_lcd.print(" ");
-	    	_lcd.setCursor(0, 0); 
-		} else {
-		    _lcd.setCursor(0, 1);
-	    	_lcd.write(byte(ARROW_RIGHT));
-	    	_lcd.setCursor(0, 0);
-	    	_lcd.print(" ");
-	    	_lcd.setCursor(0, 1); 
-		}
-		
-		delay(300);
-    } while (button != BUTTON_SELECT);
+    if (button == BUTTON_NONE || button == BUTTON_LEFT) {
+      selected = -1;
+      break;
+    }
+    if (button == BUTTON_DOWN) selected++;
+    if (button == BUTTON_UP) selected--;
+    
+    if (selected < 0) selected = 0;
+    if (selected >= size) selected = size-1;
 
-    return selected;
+    if (selected > (windows_pos+1) || selected < windows_pos) { 
+      moveScreen(_lcd, button, 0, size-1);
+    }
+    
+    if (windows_pos == selected) {
+        _lcd.setCursor(0, 0);
+        _lcd.write(byte(ARROW_RIGHT));
+        _lcd.setCursor(0, 1);
+        _lcd.print(" ");
+        _lcd.setCursor(0, 0); 
+    } else {
+        _lcd.setCursor(0, 1);
+        _lcd.write(byte(ARROW_RIGHT));
+        _lcd.setCursor(0, 0);
+        _lcd.print(" ");
+        _lcd.setCursor(0, 1); 
+    }
+    
+    delay(300);
+  } while (button != BUTTON_SELECT);
+
+  return selected;
 }
 
 float ScreenController::readFloat(LiquidCrystal _lcd, String title, float initValue, int decimal, String unit, int timeout) {
-   float value = initValue;
-   float increment = 1 / pow(10, decimal);
-   int button, countClick = 0;
-   long lastClick = millis();
+  float value = initValue;
+  float increment = 1 / pow(10, decimal);
+  int button, countClick = 0;
+  long lastClick = millis();
    
-   clear(_lcd);
-   printItem(_lcd, title);
-   String strValue = String(value) + char(UP_DOWN) + unit;
-   printSubItem(_lcd, strValue);
+  clear(_lcd);
+  printItem(_lcd, title);
+  String strValue = String(value) + char(UP_DOWN) + unit;
+  printSubItem(_lcd, strValue);
 
 	do {
-    	// Wait press button
-    	button = readButton(timeout);
+    // Wait press button
+    button = readButton(timeout);
 
-      	// Move windows
-      	if (button == BUTTON_UP) {
+    // Move windows
+    if (button == BUTTON_UP) {
 	 		value = value + increment;
-      	} else if (button == BUTTON_DOWN) {
+    } else if (button == BUTTON_DOWN) {
 	 		value = value - increment;
-      	} else if (button == BUTTON_NONE || button == BUTTON_LEFT) {
-      		// Exit read
-        	value = initValue;
-          	break;
-      	}
+    } else if (button == BUTTON_NONE || button == BUTTON_LEFT) {
+      // Exit read
+      value = initValue;
+      break;
+    }
 
-      	// Print new value
-      	String strValue = String(value) + char(UP_DOWN) + unit + " ";
-      	printSubItem(_lcd, strValue);
+    // Print new value
+    String strValue = String(value) + char(UP_DOWN) + unit + " ";
+    printSubItem(_lcd, strValue);
       
-      	if (lastClick+360 > millis()) {
+    if (lastClick+360 > millis()) {
 	 		if (countClick > 3) {
-		    	delay(50);
+		    delay(50);
 	 		} else {
-	    		countClick++;
-	    		delay(300);
+	    	countClick++;
+	    	delay(300);
 	 		}
-      	} else {
+    } else {
 	 		countClick = 0;
 	 		delay(500);
-      	}
-      	lastClick = millis();
-   	} while (button != BUTTON_SELECT);
+    }
+    lastClick = millis();
+  } while (button != BUTTON_SELECT);
 
-   	return value;
+  return value;
 }
 
 int ScreenController::readInteger(LiquidCrystal _lcd, String title, int initValue, String unit, int timeout) {
 	int value = initValue;
 	int button, countClick = 0;
-   	long lastClick = millis();
+  long lastClick = millis();
    
-   	clear(_lcd);
-   	printItem(_lcd, title);
-   	String strValue = String(value) + char(UP_DOWN) + unit;
-   	printSubItem(_lcd, strValue);
+  clear(_lcd);
+  printItem(_lcd, title);
+  String strValue = String(value) + char(UP_DOWN) + unit;
+  printSubItem(_lcd, strValue);
 
-   	do {
-    	// Wait press button
-      	button = readButton(timeout);
+ 	do {
+    // Wait press button
+    button = readButton(timeout);
 
-    	// Move windows
-      	if (button == BUTTON_UP) {
-	 		value++;
-      	} else if (button == BUTTON_DOWN) {
-	 		value--;
-      	} else if (button == BUTTON_NONE || button == BUTTON_LEFT) {
-      		// Exit read
-        	value = initValue;
-          	break;
-      	}
+    // Move windows
+    if (button == BUTTON_UP) {
+      value++;
+    } else if (button == BUTTON_DOWN) {
+      value--;
+    } else if (button == BUTTON_NONE || button == BUTTON_LEFT) {
+      // Exit read
+      value = initValue;
+      break;
+    }
 
-      	// Print new value
-      	String strValue = String(value) + char(UP_DOWN) + unit + " ";
-      	printSubItem(_lcd, strValue);
+    // Print new value
+    String strValue = String(value) + char(UP_DOWN) + unit + " ";
+    printSubItem(_lcd, strValue);
       
-      	if (lastClick+360 > millis()) {
-	 		if (countClick > 3) {
-            	delay(50);
+    if (lastClick+360 > millis()) {
+      if (countClick > 3) {
+        delay(50);
 	 		} else {
-	    		countClick++;
-	    		delay(300);
+        countClick++;
+        delay(300);
 	 		}
-      	} else {
-	 		countClick = 0;
+    } else {
+      countClick = 0;
 	 		delay(500);
-      	}
-      	lastClick = millis();
-   	} while (button != BUTTON_SELECT);
+    }
+    lastClick = millis();
+  } while (button != BUTTON_SELECT);
 
-   	return value;
+  return value;
 }
 
 String ScreenController::readString(LiquidCrystal _lcd, String title, String initValue, int timeout) {
 	String value;
-   	int button, x = 0;
+  int button, x = 0;
 
-   	if (initValue == "") {
-    	value = "a";
-   	} else {
-    	value = String(initValue);
-   	}
+  if (initValue == "") {
+    value = "a";
+  } else {
+    value = String(initValue);
+  }
 
-   	clear(_lcd);
-   	printItem(_lcd, title);
-   	printSubItem(_lcd, value);
-   	_lcd.setCursor(1, 1);
-   	_lcd.blink();
+  clear(_lcd);
+  printItem(_lcd, title);
+  printSubItem(_lcd, value);
+  _lcd.setCursor(1, 1);
+  _lcd.blink();
 
-   	do {
-    	// Wait press button
-      	button = readButton(timeout);
+  do {
+    // Wait press button
+    button = readButton(timeout);
 
-      	// Move windows
-      	if (button == BUTTON_UP) {
-	 		value[x]++;
-      	} else if (button == BUTTON_DOWN) {
-	 		value[x]--;
-      	} else if (button == BUTTON_RIGHT) {
-	 		x++;
-      	} else if (button == BUTTON_LEFT) {
-	 		x--;
-      	} else if (button == BUTTON_NONE) {
-      		// Exit read
-        	value = initValue;
-          	break;
-      	}
+    // Move windows
+    if (button == BUTTON_UP) {
+      value[x]++;
+    } else if (button == BUTTON_DOWN) {
+      value[x]--;
+    } else if (button == BUTTON_RIGHT) {
+      x++;
+    } else if (button == BUTTON_LEFT) {
+      x--;
+    } else if (button == BUTTON_NONE) {
+      // Exit read
+      value = initValue;
+      break;
+    }
 
-      	if (x < 0) x = 0;
-      	if (x >= value.length()) {
-	 		value = value+"a";
-      	}
+    if (x < 0) x = 0;
+    if (x >= value.length()) {
+      value = value+"a";
+    }
 
-      	// Print new value
-      	String strValue = value;
-      	printSubItem(_lcd, strValue);
+    // Print new value
+    String strValue = value;
+    printSubItem(_lcd, strValue);
       
-      	_lcd.setCursor(1+x, 1);
+    _lcd.setCursor(1+x, 1);
 
-      	delay(300);
-    } while (button != BUTTON_SELECT);
+    delay(300);
+  } while (button != BUTTON_SELECT);
 
-   	return value;
+  return value;
 }
 
 String ScreenController::readStringNumber(LiquidCrystal _lcd, String title, String initValue, int maxLength, int timeout) {
 	String value;
-   	int button, x = 0;
+  int button, x = 0;
 
-   	if (initValue == "") {
-    	value = "0";
-   	} else {
-    	value = String(initValue);
-   	}
+  if (initValue == "") {
+    value = "0";
+  } else {
+    value = String(initValue);
+  }
 
-   	clear(_lcd);
-   	printItem(_lcd, title);
-   	printSubItem(_lcd, value);
-   	_lcd.setCursor(1, 1);
-   	_lcd.blink();
+  clear(_lcd);
+  printItem(_lcd, title);
+  printSubItem(_lcd, value);
+  _lcd.setCursor(1, 1);
+  _lcd.blink();
 
-   	do {
-    	// Wait press button
-      	button = readButton(timeout);
+  do {
+    // Wait press button
+    button = readButton(timeout);
 
-      	// Move windows
-      	if (button == BUTTON_UP) {
-			value[x]++;
-			if (value[x] > '9') value[x] = '9';
-      	} else if (button == BUTTON_DOWN) {
-			value[x]--;
+    // Move windows
+    if (button == BUTTON_UP) {
+      value[x]++;
+		  if (value[x] > '9') value[x] = '9';
+    } else if (button == BUTTON_DOWN) {
+      value[x]--;
 			if (value[x] < '0') value[x] = '0';
-      	} else if (button == BUTTON_RIGHT) {
+    } else if (button == BUTTON_RIGHT) {
 	 		x++;
-      	} else if (button == BUTTON_LEFT) {
+    } else if (button == BUTTON_LEFT) {
 	 		x--;
-      	} else if (button == BUTTON_NONE) {
-      		// Exit read
-        	value = initValue;
-          	break;
-      	}
+    } else if (button == BUTTON_NONE) {
+      // Exit read
+      value = initValue;
+      break;
+    }
 
-      	if (x < 0) x = 0;
-      	if (x >= maxLength) x = maxLength-1;
-      	if (x >= value.length()) {
-      		value = value+"0";
-      	}
+    if (x < 0) x = 0;
+    if (x >= maxLength) x = maxLength-1;
+    if (x >= value.length()) {
+      value = value+"0";
+    }
 
-      	// Print new value
-      	String strValue = value;
-      	printSubItem(_lcd, strValue);
+    // Print new value
+    String strValue = value;
+    printSubItem(_lcd, strValue);
       
-      	_lcd.setCursor(1+x, 1);
+    _lcd.setCursor(1+x, 1);
 
-      	delay(300);
-    } while (button != BUTTON_SELECT);
+    delay(300);
+  } while (button != BUTTON_SELECT);
 
-   	return value;
+  return value;
 }
