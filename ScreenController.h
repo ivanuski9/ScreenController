@@ -50,6 +50,7 @@ class ScreenController {
 
 	private:
 		int read_LCD_buttons();
+		int readItemList(LiquidCrystal _lcd, int selected, int size, int timeout);
 		int positionAbs(int posRelative);
 		void moveScreen(LiquidCrystal _lcd, int button, int limitUp = 0, int limitDown = LIMIT_BUFFER-1);
 		void printBuffer(LiquidCrystal _lcd);
